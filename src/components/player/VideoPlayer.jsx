@@ -1,12 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
 import { FourSquare } from "react-loading-indicators";
 
 export default function VideoPlayer({ url }) {
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [levels, setLevels] = useState([]);
+  const [currentLevel, setCurrentLevel] = useState(-1); // -1 = AUTO
 
   useEffect(() => {
     const video = videoRef.current;
@@ -14,32 +17,26 @@ export default function VideoPlayer({ url }) {
 
     setLoading(true);
     setError(false);
+    setLevels([]);
+    setCurrentLevel(-1);
 
-    if (hlsRef.current) {
-      hlsRef.current.destroy();
-      hlsRef.current = null;
-    }
-
-    video.pause();
-    video.removeAttribute("src");
-    video.load();
-
-    if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = url;
-      video.load();
-      video.onloadeddata = () => {
-        setLoading(false);
-        video.play().catch(() => {});
-      };
-    } else if (Hls.isSupported()) {
-      const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+    if (Hls.isSupported()) {
+      const hls = new Hls({ 
+        enableWorker: true, 
+        lowLatencyMode: true,
+        backBufferLength: 60 
+      });
+      
       hlsRef.current = hls;
       hls.loadSource(url);
       hls.attachMedia(video);
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        setLevels(hls.levels || []);
         setLoading(false);
-        video.play().catch(() => {});
+        video.play().catch(() => {
+          console.log("Autoplay prevented; user interaction required.");
+        });
       });
 
       hls.on(Hls.Events.ERROR, (_, data) => {
@@ -48,56 +45,68 @@ export default function VideoPlayer({ url }) {
           setLoading(false);
         }
       });
-    } else {
+
+      return () => {
+        if (hlsRef.current) hlsRef.current.destroy();
+      };
+    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = url;
-      video.play().catch(() => setLoading(false));
+      video.addEventListener("loadeddata", () => setLoading(false));
+      video.addEventListener("error", () => setError(true));
     }
-
-    const onPlaying = () => setLoading(false);
-    const onWaiting = () => setLoading(true);
-    const onError = () => {
-      setError(true);
-      setLoading(false);
-    };
-
-    video.addEventListener("playing", onPlaying);
-    video.addEventListener("waiting", onWaiting);
-    video.addEventListener("error", onError);
-
-    return () => {
-      video.removeEventListener("playing", onPlaying);
-      video.removeEventListener("waiting", onWaiting);
-      video.removeEventListener("error", onError);
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
-    };
   }, [url]);
 
-  return (
-    <div className="relative w-full max-w-4xl mx-auto bg-black rounded-xl overflow-hidden flex justify-center">
-      {/* Video */}
-     <video
-  ref={videoRef}
-  className="w-full max-w-full h-auto"
-  autoPlay
-  muted
-  playsInline
-  preload="auto"
-/>
+  const changeQuality = (levelIndex) => {
+    setCurrentLevel(levelIndex);
+    if (hlsRef.current) {
+      hlsRef.current.currentLevel = levelIndex;
+    }
+  };
 
-      {/* Loading */}
-      {loading && !error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
-          <FourSquare color="#32cd32" size="medium" />
+  return (
+    <div className="relative w-full aspect-video bg-black rounded-[2rem] overflow-hidden border border-zinc-800 shadow-2xl">
+      {/* VIDEO ELEMENT */}
+      <video
+        ref={videoRef}
+        className="w-full h-full object-contain"
+        controls
+        playsInline
+      />
+
+      {/* QUALITY SELECTOR - Always Visible */}
+      {levels.length > 0 && (
+        <div className="absolute top-4 right-4 z-50 flex items-center gap-1">
+          <span className="text-[10px] font-black text-zinc-400 uppercase">Quality:</span>
+          <select
+            className="bg-zinc-900/90 text-white text-[10px] font-black uppercase px-3 py-2 rounded-xl border border-emerald-500/50 outline-none cursor-pointer hover:border-emerald-500 transition-colors"
+            value={currentLevel}
+            onChange={(e) => changeQuality(Number(e.target.value))}
+          >
+            <option value={-1}>⚡ Auto</option>
+            {levels.map((level, index) => (
+              <option key={index} value={index}>
+                {level.height ? `${level.height}p` : `Level ${index}`}
+              </option>
+            ))}
+          </select>
         </div>
       )}
 
-      {/* Error */}
+      {/* LOADING STATE */}
+      {loading && !error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-zinc-950 z-40">
+          <FourSquare color="#10b981" size="medium" />
+        </div>
+      )}
+
+      {/* ERROR STATE */}
       {error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
-          <span className="text-red-500 text-sm font-bold">Stream unavailable</span>
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950 z-40 gap-4">
+          <div className="p-4 rounded-full bg-red-500/10">
+            <span className="text-red-500 text-sm font-black uppercase tracking-widest">
+              Stream Offline
+            </span>
+          </div>
         </div>
       )}
     </div>

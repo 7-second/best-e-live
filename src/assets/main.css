@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-green: #22c55e;
+  --color-dark-bg: #050505;
+  --color-dark-surface: #0f0f0f;
+}
+
+/* Custom Scrollbar for the professional "Streaming App" look */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #050505;
+}
+::-webkit-scrollbar-thumb {
+  background: #222;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #333;
+}
+
+body {
+  background-color: var(--color-dark-bg);
+  color: #f4f4f5;
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+}

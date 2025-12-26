@@ -1,4 +1,5 @@
-import React from "react";
+// PlayerPage.jsx
+import React, { useState, useEffect } from "react";
 import VideoPlayer from "../components/player/VideoPlayer";
 import { ArrowLeft, ChevronLeft, ChevronRight, Tv } from "lucide-react";
 
@@ -18,6 +19,26 @@ const PlayerPage = ({
     (currentPage + 1) * channelsPerPage
   );
 
+  // Lazy loading placeholders
+  const [imagesLoaded, setImagesLoaded] = useState(false);
+
+  useEffect(() => {
+    const loadImages = async () => {
+      const promises = paginatedChannels.map(
+        (ch) =>
+          new Promise((resolve) => {
+            const img = new Image();
+            img.src = ch.logo;
+            img.onload = resolve;
+            img.onerror = resolve;
+          })
+      );
+      await Promise.all(promises);
+      setImagesLoaded(true);
+    };
+    loadImages();
+  }, [currentPage, paginatedChannels]);
+
   return (
     <div className="min-h-screen bg-zinc-950 text-white pb-20 font-sans">
       {/* Header */}
@@ -26,7 +47,10 @@ const PlayerPage = ({
           onClick={onBack}
           className="group text-zinc-500 hover:text-emerald-500 flex items-center gap-2 text-[10px] font-black uppercase transition-all"
         >
-          <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> 
+          <ArrowLeft
+            size={16}
+            className="group-hover:-translate-x-1 transition-transform"
+          />
           Back to Gallery
         </button>
         <div className="flex items-center gap-2">
@@ -52,6 +76,7 @@ const PlayerPage = ({
               alt={channel.name}
               onError={(e) => (e.target.src = "https://via.placeholder.com/150")}
               className="max-h-full object-contain"
+              loading="lazy"
             />
           </div>
           <div>
@@ -73,9 +98,11 @@ const PlayerPage = ({
               <h3 className="text-zinc-500 font-black text-[11px] uppercase tracking-[0.4em] flex items-center gap-3 mb-1">
                 <Tv size={18} className="text-emerald-500" /> More Channels
               </h3>
-              <p className="text-zinc-600 text-[10px] font-bold uppercase">Discover similar content</p>
+              <p className="text-zinc-600 text-[10px] font-bold uppercase">
+                Discover similar content
+              </p>
             </div>
-            
+
             <div className="flex items-center gap-4 bg-zinc-900/50 p-1.5 rounded-2xl border border-zinc-800">
               <button
                 disabled={currentPage === 0}
@@ -85,7 +112,8 @@ const PlayerPage = ({
                 <ChevronLeft size={18} />
               </button>
               <span className="text-[10px] font-black text-zinc-400 px-2">
-                <span className="text-emerald-500">{currentPage + 1}</span> / {totalPages}
+                <span className="text-emerald-500">{currentPage + 1}</span> /{" "}
+                {totalPages}
               </span>
               <button
                 disabled={currentPage >= totalPages - 1}
@@ -97,38 +125,56 @@ const PlayerPage = ({
             </div>
           </div>
 
-          {/* Improved Grid with Logo Cards */}
+          {/* Grid with Lazy Loading */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-            {paginatedChannels.map((ch, i) => {
-              const isActive = channel.url === ch.url;
-              return (
-                <button
-                  key={i}
-                  onClick={() => onSelectChannel(ch)}
-                  className={`group p-4 rounded-[1.8rem] border flex flex-col items-center gap-4 transition-all duration-300 ${
-                    isActive
-                      ? "border-emerald-500 bg-emerald-500/5 shadow-[0_0_30px_rgba(16,185,129,0.1)]"
-                      : "bg-zinc-900/40 border-zinc-800 hover:border-emerald-500/50 hover:bg-zinc-900/60"
-                  }`}
-                >
-                  <div className={`h-14 w-14 rounded-2xl p-2 flex items-center justify-center transition-transform duration-300 group-hover:scale-110 ${
-                    isActive ? "bg-white shadow-lg" : "bg-zinc-800"
-                  }`}>
-                    <img
-                      src={ch.logo}
-                      alt=""
-                      onError={(e) => (e.target.src = "https://via.placeholder.com/150")}
-                      className="max-h-full max-w-full object-contain"
-                    />
-                  </div>
-                  <p className={`text-[10px] font-black truncate w-full text-center uppercase tracking-tight ${
-                    isActive ? "text-emerald-500" : "text-zinc-500 group-hover:text-zinc-300"
-                  }`}>
-                    {ch.name}
-                  </p>
-                </button>
-              );
-            })}
+            {!imagesLoaded
+              ? Array(channelsPerPage)
+                  .fill(0)
+                  .map((_, i) => (
+                    <div
+                      key={i}
+                      className="h-20 w-20 bg-zinc-800 animate-pulse rounded-xl"
+                    ></div>
+                  ))
+              : paginatedChannels.map((ch, i) => {
+                  const isActive = channel.url === ch.url;
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => onSelectChannel(ch)}
+                      className={`group p-4 rounded-[1.8rem] border flex flex-col items-center gap-4 transition-all duration-300 ${
+                        isActive
+                          ? "border-emerald-500 bg-emerald-500/5 shadow-[0_0_30px_rgba(16,185,129,0.1)]"
+                          : "bg-zinc-900/40 border-zinc-800 hover:border-emerald-500/50 hover:bg-zinc-900/60"
+                      }`}
+                    >
+                      <div
+                        className={`h-14 w-14 rounded-2xl p-2 flex items-center justify-center transition-transform duration-300 group-hover:scale-110 ${
+                          isActive ? "bg-white shadow-lg" : "bg-zinc-800"
+                        }`}
+                      >
+                        <img
+                          src={ch.logo}
+                          alt=""
+                          onError={(e) =>
+                            (e.target.src = "https://via.placeholder.com/150")
+                          }
+                          className="max-h-full max-w-full object-contain"
+                          loading="lazy"
+                        />
+                      </div>
+                      <p
+                        className={`text-[10px] font-black truncate w-full text-center uppercase tracking-tight ${
+                          isActive
+                            ? "text-emerald-500"
+                            : "text-zinc-500 group-hover:text-zinc-300"
+                        }`}
+                      >
+                        {ch.name}
+                      </p>
+                    </button>
+                  );
+                })}
           </div>
         </div>
       </div>
